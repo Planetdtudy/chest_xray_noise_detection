@@ -2,16 +2,6 @@
 # Imports
 
 
-### V control
-#1
-#git add fusion_dragon_im.py
-#2 — Commit as version 2
-#git commit -m "Version 2: Added train/validation split and validation accuracy"
-#3 — (Optional) Tag version 2
-#git tag v2
-#git checkout v1   # go back to baseline
-#git checkout v2   # go to updated version with validation
-
 # ----------------------------
 import torch
 import torch.nn as nn
