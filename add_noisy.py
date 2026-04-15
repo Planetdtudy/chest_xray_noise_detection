@@ -8,12 +8,16 @@ import matplotlib.pyplot as plt
 # Paths
 # ----------------------------
 clean_dir = "chest_xray/clean"
+noise_dir = "chest_xray/noisy"
 base_noisy_dirs = {
     'gaussian': "chest_xray/noisy_gaussian",
     'speckle': "chest_xray/noisy_speckle",
     'poisson': "chest_xray/noisy_poisson",
     'salt_pepper': "chest_xray/noisy_salt_pepper"
 }
+
+print("Setting up directories...")
+print(base_noisy_dirs['gaussian'])#, base_noisy_dirs[1], base_noisy_dirs[2], base_noisy_dirs[3])
 
 # Create all noisy folders
 for path in base_noisy_dirs.values():
@@ -22,7 +26,7 @@ for path in base_noisy_dirs.values():
 # Parameters
 # ----------------------------
 target_size = (512, 512)
-noise_std = 0.05  # Adjust for noise strength (0.02–0.1 typical)
+noise_std = 0.02 # Adjust for noise strength (0.02–0.1 typical) At 0.02: It looks like a slightly "low-quality" or "fast" X-ray scan.
 seed = 42  # optional: set to None for nondeterministic noise
 
 # ----------------------------
@@ -40,7 +44,7 @@ def center_crop_or_resize(image, size=(512, 512)):
         # image is smaller in at least one dimension -> resize to target
         return cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
 
-def add_noise(image, std=0.05, scale=1.0, noise_type='gaussian'):
+def add_noise(image, std=0.02, scale=1.0, noise_type='gaussian'):
     """
     Add various noise types to the image.
     noise_type: 'gaussian', 'speckle', 'poisson', or 'salt_pepper'
@@ -70,7 +74,6 @@ def add_noise(image, std=0.05, scale=1.0, noise_type='gaussian'):
     return np.clip(noisy, 0, 1)
 
 
-
 # ----------------------------
 # Processing
 # ----------------------------
@@ -78,14 +81,14 @@ if seed is not None:
     np.random.seed(seed)
     random.seed(seed)
 
-if not os.path.isdir(clean_dir):
-    raise FileNotFoundError(f"Clean directory not found: {clean_dir}")
+if not os.path.isdir(noise_dir):
+    raise FileNotFoundError(f"Noisy directory not found: {noise_dir}")
 
-clean_images = sorted([f for f in os.listdir(clean_dir) if f.lower().endswith(('.jpeg'))])
-if len(clean_images) == 0:
-    raise RuntimeError(f"No image files found in {clean_dir}")
+noise_images = sorted([f for f in os.listdir(noise_dir) if f.lower().endswith(('.jpeg'))])
+if len(noise_images) == 0:
+    raise RuntimeError(f"No image files found in {noise_dir}")
 
-noise_types = ['gaussian', 'speckle', 'poisson', 'salt_pepper']
+noise_types = ['gaussian']#, 'speckle', 'poisson', 'salt_pepper']
 count_dict = {}
 
 for ntype in noise_types:
@@ -93,8 +96,8 @@ for ntype in noise_types:
     count = 0
     print(f"Generating {ntype} noise images...")
 
-    for filename in clean_images:
-        img_path = os.path.join(clean_dir, filename)
+    for filename in noise_images:
+        img_path = os.path.join(noise_dir, filename)
         img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
         if img is None:
             print(f"Warning: failed to read {img_path}, skipping.")
@@ -128,7 +131,7 @@ for ntype, count in count_dict.items():
 # Plot two random pairs (if enough images)
 # ----------------------------
 n_plot = 2
-available = [f for f in clean_images if os.path.exists(os.path.join(base_noisy_dirs[1], f))]
+available = [f for f in noise_images if os.path.exists(os.path.join(base_noisy_dirs['gaussian'], f))]
 if len(available) == 0:
     raise RuntimeError("No noisy images found to plot. Did processing fail?")
 
@@ -138,10 +141,20 @@ samples = random.sample(available, sample_count)
 plt.figure(figsize=(10, 6))
 for i, fname in enumerate(samples):
     clean_path = os.path.join(clean_dir, fname)
-    noisy_path = os.path.join(base_noisy_dirs[1], fname)
+    noisy_path = os.path.join(base_noisy_dirs['gaussian'], fname)
 
     clean = cv2.imread(clean_path, cv2.IMREAD_GRAYSCALE)
     noisy = cv2.imread(noisy_path, cv2.IMREAD_GRAYSCALE)
+
+    if clean is None:
+        print(f"Error: Could not find clean image at {clean_path}")
+        continue
+    if noisy is None:
+        print(f"Error: Could not find noisy image at {noisy_path}")
+        continue
+
+    diff = np.abs(clean.astype(float) - noisy.astype(float))
+    print("mean difference:", diff.mean())
 
     plt.subplot(sample_count, 2, i*2 + 1)
     plt.imshow(clean, cmap='gray', vmin=0, vmax=255)
